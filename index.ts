@@ -66,25 +66,33 @@ export const isTradingHoliday = (): boolean => {
   });
   return isHoliday;
 };
-export type CREDENTAILS = {
+export type CREDENTIALS = {
   APIKEY: string;
   CLIENT_CODE: string;
   CLIENT_PIN: string;
   CLIENT_TOTP_PIN: string;
 };
-let credentails: CREDENTAILS;
+let credentails: CREDENTIALS | undefined;
 export const setCredentials = ({
   APIKEY,
   CLIENT_CODE,
   CLIENT_PIN,
   CLIENT_TOTP_PIN,
-}: CREDENTAILS) => {
-  credentails.APIKEY = APIKEY;
-  credentails.CLIENT_CODE = CLIENT_CODE;
-  credentails.CLIENT_PIN = CLIENT_PIN;
-  credentails.CLIENT_TOTP_PIN = CLIENT_TOTP_PIN;
+}: CREDENTIALS) => {
+  if (credentails) {
+    throw new Error('Credentials have already been set.');
+  }
+  credentails = {
+    APIKEY,
+    CLIENT_CODE,
+    CLIENT_PIN,
+    CLIENT_TOTP_PIN,
+  };
 };
 export const getCredentials = () => {
+  if (!credentails) {
+    throw new Error('Credentials have not been set.');
+  }
   return credentails;
 };
 export interface ISmartApiData {
@@ -92,8 +100,19 @@ export interface ISmartApiData {
   refreshToken: string;
   feedToken: string;
 }
-export const generateSmartSession = async (): Promise<ISmartApiData | null> => {
-  if (credentails) {
+let smartSession: ISmartApiData | undefined;
+export const getSmartSession = async () => {
+  if (smartSession) return smartSession;
+  else {
+    if (credentails) return await generateSmartSession(credentails);
+  }
+};
+export const generateSmartSession = async (
+  credentails: CREDENTIALS
+): Promise<ISmartApiData> => {
+  if (smartSession) {
+    return smartSession;
+  } else {
     const TOTP = totp(credentails.CLIENT_TOTP_PIN);
     const smart_api = new SmartAPI({
       api_key: credentails.APIKEY,
@@ -102,19 +121,15 @@ export const generateSmartSession = async (): Promise<ISmartApiData | null> => {
     return smart_api
       .generateSession(credentails.CLIENT_CODE, credentails.CLIENT_PIN, TOTP)
       .then(async (response: object) => {
-        return _get(response, 'data');
+        smartSession = _get(response, 'data');
+        return smartSession;
       })
       .catch((ex: object) => {
         console.log(`${ALGO}: generateSmartSession failed error below`);
         console.log(ex);
         throw ex;
       });
-  } else {
-    console.log(
-      `${ALGO}: generateSmartSession failed as credentails not defined`
-    );
   }
-  return null;
 };
 export const hedgeCalculation = (index: string) => {
   switch (index) {
