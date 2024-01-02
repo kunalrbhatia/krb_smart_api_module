@@ -10,15 +10,20 @@ export enum INDICES {
   BANKNIFTY = 'BANKNIFTY',
   SENSEX = 'SENSEX',
 }
+export type CREDENTIALS = {
+  APIKEY: string;
+  CLIENT_CODE: string;
+  CLIENT_PIN: string;
+  CLIENT_TOTP_PIN: string;
+};
 export const getStrikeDifference = (index: string) => {
   switch (index) {
     case INDICES.NIFTY:
     case INDICES.FINNIFTY:
-      return 0.01;
     case INDICES.MIDCPNIFTY:
     case INDICES.SENSEX:
     case INDICES.BANKNIFTY:
-      return 0.006;
+      return 0.005;
     default:
       return 0.01;
   }
@@ -65,12 +70,6 @@ export const isTradingHoliday = (): boolean => {
     return today.isSame(holidayDate, 'day');
   });
   return isHoliday;
-};
-export type CREDENTIALS = {
-  APIKEY: string;
-  CLIENT_CODE: string;
-  CLIENT_PIN: string;
-  CLIENT_TOTP_PIN: string;
 };
 let credentails: CREDENTIALS | undefined;
 export const setCredentials = ({
@@ -134,8 +133,9 @@ export const generateSmartSession = async (
 export const hedgeCalculation = (index: string) => {
   switch (index) {
     case INDICES.NIFTY:
-    case INDICES.FINNIFTY:
       return 500;
+    case INDICES.FINNIFTY:
+      return 400;
     case INDICES.MIDCPNIFTY:
       return 100;
     case INDICES.SENSEX:
