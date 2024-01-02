@@ -19,13 +19,15 @@ export type CREDENTIALS = {
 export const getStrikeDifference = (index: string) => {
   switch (index) {
     case INDICES.NIFTY:
+      return 100;
     case INDICES.FINNIFTY:
     case INDICES.MIDCPNIFTY:
+      return 50;
     case INDICES.SENSEX:
     case INDICES.BANKNIFTY:
-      return 0.005;
+      return 200;
     default:
-      return 0.01;
+      return 50;
   }
 };
 export const getScripName = (expireDate: string) => {
