@@ -19,15 +19,14 @@ export type CREDENTIALS = {
 export const getStrikeDifference = (index: string) => {
   switch (index) {
     case INDICES.NIFTY:
-      return 100;
     case INDICES.FINNIFTY:
     case INDICES.MIDCPNIFTY:
-      return 50;
+      return 100;
     case INDICES.SENSEX:
     case INDICES.BANKNIFTY:
       return 200;
     default:
-      return 50;
+      return 100;
   }
 };
 export const getScripName = (expireDate: string) => {
@@ -145,5 +144,17 @@ export const hedgeCalculation = (index: string) => {
       return 1000;
     default:
       return 1000;
+  }
+};
+export const roundToNearestHundred = (input: number): number => {
+  return Math.ceil(input / 100) * 100;
+};
+export const isJson = (string: string) => {
+  console.log(`${ALGO}: checking if json is proper.`);
+  try {
+    JSON.parse(string);
+    return true;
+  } catch (error) {
+    return false;
   }
 };
