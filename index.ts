@@ -1,10 +1,15 @@
 export const GET_MARGIN =
   'https://apiconnect.angelbroking.com/rest/secure/angelbroking/user/v1/getRMS';
+export const SCRIPMASTER =
+  'https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json';
 import moment from 'moment';
 const totp = require('totp-generator');
 const axios = require('axios');
-const ALGO = 'ALGO';
-import { get as _get } from 'lodash';
+export const ALGO = 'ALGO';
+export const DELAY = 1000;
+export const BIG_DELAY = 15000;
+export const SHORT_DELAY = 500;
+import { get as _get, isArray } from 'lodash';
 let { SmartAPI } = require('smartapi-javascript');
 export enum INDICES {
   NIFTY = 'NIFTY',
@@ -150,56 +155,42 @@ export const generateSmartSession = async (
       });
   }
 };
-const getMarginDetails = async (): Promise<MarginAPIResponseType | null> => {
-  if (smartSession) {
-    const jwtToken = smartSession.jwtToken;
-    const cred = getCredentials();
-    const config = {
-      method: 'get',
-      url: GET_MARGIN,
-      headers: {
-        Authorization: `Bearer ${jwtToken}`,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'X-UserType': 'USER',
-        'X-SourceID': 'WEB',
-        'X-ClientLocalIP': 'CLIENT_LOCAL_IP',
-        'X-ClientPublicIP': 'CLIENT_PUBLIC_IP',
-        'X-MACAddress': 'MAC_ADDRESS',
-        'X-PrivateKey': cred.APIKEY,
-      },
-    };
-    return axios(config)
-      .then((response: Response) => {
-        return _get(response, 'data.data') as MarginAPIResponseType | undefined;
-      })
-      .catch(function (error: Response) {
-        const errorMessage = `${ALGO}: getMarginDetails failed error below`;
-        console.log(errorMessage);
-        console.log(error);
-        throw error;
-      });
-  } else {
-    return null;
-  }
-};
-export const hedgeCalculation = (index: string) => {
-  switch (index) {
-    case INDICES.NIFTY:
-      return 400;
-    case INDICES.FINNIFTY:
-      return 400;
-    case INDICES.MIDCPNIFTY:
-      let date = new Date();
-      if (date.getDay() === 5) return 150;
-      else return 100;
-    case INDICES.SENSEX:
-    case INDICES.BANKNIFTY:
-      return 1000;
-    default:
-      return 1000;
-  }
-};
+export const getMarginDetails =
+  async (): Promise<MarginAPIResponseType | null> => {
+    if (smartSession) {
+      const jwtToken = smartSession.jwtToken;
+      const cred = getCredentials();
+      const config = {
+        method: 'get',
+        url: GET_MARGIN,
+        headers: {
+          Authorization: `Bearer ${jwtToken}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'X-UserType': 'USER',
+          'X-SourceID': 'WEB',
+          'X-ClientLocalIP': 'CLIENT_LOCAL_IP',
+          'X-ClientPublicIP': 'CLIENT_PUBLIC_IP',
+          'X-MACAddress': 'MAC_ADDRESS',
+          'X-PrivateKey': cred.APIKEY,
+        },
+      };
+      return axios(config)
+        .then((response: Response) => {
+          return _get(response, 'data.data') as
+            | MarginAPIResponseType
+            | undefined;
+        })
+        .catch((error: Response) => {
+          const errorMessage = `${ALGO}: getMarginDetails failed error below`;
+          console.log(errorMessage);
+          console.log(error);
+          throw error;
+        });
+    } else {
+      return null;
+    }
+  };
 export const roundToNearestHundred = (input: number): number => {
   return Math.ceil(input / 100) * 100;
 };
@@ -261,4 +252,70 @@ export const getLastWednesdayOfMonth = () => {
     lastDayOfMonth.subtract(1, 'days');
   }
   return lastDayOfMonth;
+};
+let scripMasterJson: scripMasterResponse[];
+const setScripMasterJson = (data: scripMasterResponse[]) => {
+  scripMasterJson = data;
+};
+const getScripMasterJson = async () => {
+  if (scripMasterJson) {
+    return scripMasterJson;
+  } else {
+    const data = await fetchData();
+    setScripMasterJson(data);
+    return data;
+  }
+};
+export const fetchData = async (): Promise<scripMasterResponse[]> => {
+  const data = getScripMasterJson();
+  if (data.length > 0) {
+    return data as scripMasterResponse[];
+  } else {
+    return await axios
+      .get(SCRIPMASTER)
+      .then((response: object) => {
+        let acData: scripMasterResponse[] = _get(response, 'data', []) || [];
+        setScripMasterJson(acData);
+        return acData;
+      })
+      .catch((evt: object) => {
+        console.log(`${ALGO}: fetchData failed error below`);
+        console.log(evt);
+        throw evt;
+      });
+  }
+};
+export const getLastThursdayOfCurrentMonth = () => {
+  const today = moment();
+  let lastDayOfMonth = moment().endOf('month');
+  // Loop backward from the last day until we find a Thursday
+  while (lastDayOfMonth.day() !== 4) {
+    lastDayOfMonth.subtract(1, 'days');
+  }
+  if (lastDayOfMonth.isBefore(today)) {
+    lastDayOfMonth = moment().endOf('month');
+    lastDayOfMonth.add(1, 'month');
+    // Loop backward from the last day until we find a Thursday
+    while (lastDayOfMonth.day() !== 4) {
+      lastDayOfMonth.subtract(1, 'days');
+    }
+  }
+  return lastDayOfMonth.format('DDMMMYYYY').toUpperCase();
+};
+export const getAllFut = async () => {
+  let scripMaster: scripMasterResponse[] = getScripMasterJson();
+  if (isArray(scripMaster) && scripMaster.length > 0) {
+    const _expiry: string = getLastThursdayOfCurrentMonth();
+    let filteredScrips = scripMaster.filter((scrip) => {
+      return (
+        _get(scrip, 'exch_seg') === 'NFO' &&
+        _get(scrip, 'instrumenttype') === 'FUTSTK' &&
+        _get(scrip, 'expiry') === _expiry
+      );
+    });
+    if (filteredScrips.length > 0) return filteredScrips;
+    else throw new Error('some error occurred');
+  } else {
+    throw new Error('some error occurred');
+  }
 };
