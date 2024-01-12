@@ -134,11 +134,13 @@ export const generateSmartSession = async (
 export const hedgeCalculation = (index: string) => {
   switch (index) {
     case INDICES.NIFTY:
-      return 500;
+      return 400;
     case INDICES.FINNIFTY:
       return 400;
     case INDICES.MIDCPNIFTY:
-      return 100;
+      let date = new Date();
+      if (date.getDay() === 5) return 150;
+      else return 100;
     case INDICES.SENSEX:
     case INDICES.BANKNIFTY:
       return 1000;
@@ -157,4 +159,54 @@ export const isJson = (string: string) => {
   } catch (error) {
     return false;
   }
+};
+export type delayType = {
+  milliSeconds: number | undefined | string;
+};
+export const delay = ({ milliSeconds }: delayType) => {
+  const FIVE_MINUTES = 5 * 60 * 1000;
+  let delayInMilliseconds = 0;
+  if (milliSeconds && typeof milliSeconds === 'number')
+    delayInMilliseconds = milliSeconds;
+  else if (milliSeconds && typeof milliSeconds === 'string')
+    delayInMilliseconds = parseInt(milliSeconds);
+  else delayInMilliseconds = FIVE_MINUTES;
+  return new Promise((resolve) => {
+    setTimeout(resolve, delayInMilliseconds);
+  });
+};
+export type scripMasterResponse = {
+  token: string;
+  symbol: string;
+  name: string;
+  expiry: string;
+  strike: string;
+  lotsize: string;
+  instrumenttype: string;
+  exch_seg: string;
+  tick_size: string;
+};
+export const findNearestStrike = (
+  options: scripMasterResponse[],
+  target: number
+) => {
+  let nearestStrike = Infinity;
+  let nearestDiff = Infinity;
+  for (const option of options) {
+    const strike = parseInt(option.strike) / 100;
+    const currentDiff = Math.abs(target - strike);
+    if (currentDiff < nearestDiff) {
+      nearestDiff = currentDiff;
+      nearestStrike = strike;
+    }
+  }
+  return nearestStrike;
+};
+export const getLastWednesdayOfMonth = () => {
+  const today = moment();
+  const lastDayOfMonth = today.endOf('month');
+  while (lastDayOfMonth.day() !== 3) {
+    lastDayOfMonth.subtract(1, 'days');
+  }
+  return lastDayOfMonth;
 };
