@@ -1,7 +1,10 @@
+export const GET_MARGIN =
+  'https://apiconnect.angelbroking.com/rest/secure/angelbroking/user/v1/getRMS';
 import moment from 'moment';
-import { get as _get } from 'lodash';
 const totp = require('totp-generator');
+const axios = require('axios');
 const ALGO = 'ALGO';
+import { get as _get } from 'lodash';
 let { SmartAPI } = require('smartapi-javascript');
 export enum INDICES {
   NIFTY = 'NIFTY',
@@ -10,6 +13,22 @@ export enum INDICES {
   BANKNIFTY = 'BANKNIFTY',
   SENSEX = 'SENSEX',
 }
+export type MarginAPIResponseType = {
+  net: string | null;
+  availablecash: string | null;
+  availableintradaypayin: string | null;
+  availablelimitmargin: string | null;
+  collateral: string | null;
+  m2munrealized: string | null;
+  m2mrealized: string | null;
+  utiliseddebits: string | null;
+  utilisedspan: string | null;
+  utilisedoptionpremium: string | null;
+  utilisedholdingsales: string | null;
+  utilisedexposure: string | null;
+  utilisedturnover: string | null;
+  utilisedpayout: string | null;
+};
 export type CREDENTIALS = {
   APIKEY: string;
   CLIENT_CODE: string;
@@ -129,6 +148,39 @@ export const generateSmartSession = async (
         console.log(ex);
         throw ex;
       });
+  }
+};
+const getMarginDetails = async (): Promise<MarginAPIResponseType | null> => {
+  if (smartSession) {
+    const jwtToken = smartSession.jwtToken;
+    const cred = getCredentials();
+    const config = {
+      method: 'get',
+      url: GET_MARGIN,
+      headers: {
+        Authorization: `Bearer ${jwtToken}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-UserType': 'USER',
+        'X-SourceID': 'WEB',
+        'X-ClientLocalIP': 'CLIENT_LOCAL_IP',
+        'X-ClientPublicIP': 'CLIENT_PUBLIC_IP',
+        'X-MACAddress': 'MAC_ADDRESS',
+        'X-PrivateKey': cred.APIKEY,
+      },
+    };
+    return axios(config)
+      .then((response: Response) => {
+        return _get(response, 'data.data') as MarginAPIResponseType | undefined;
+      })
+      .catch(function (error: Response) {
+        const errorMessage = `${ALGO}: getMarginDetails failed error below`;
+        console.log(errorMessage);
+        console.log(error);
+        throw error;
+      });
+  } else {
+    return null;
   }
 };
 export const hedgeCalculation = (index: string) => {
