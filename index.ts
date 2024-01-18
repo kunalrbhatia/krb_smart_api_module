@@ -439,6 +439,7 @@ export const getPositions = async () => {
       throw error;
     }
   }
+  return [];
 };
 export const isCurrentTimeGreater = ({
   hours,
