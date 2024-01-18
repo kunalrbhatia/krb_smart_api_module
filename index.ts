@@ -2,6 +2,8 @@ export const GET_MARGIN =
   'https://apiconnect.angelbroking.com/rest/secure/angelbroking/user/v1/getRMS';
 export const SCRIPMASTER =
   'https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json';
+export const ORDER_API =
+  'https://apiconnect.angelbroking.com/rest/secure/angelbroking/order/v1/placeOrder';
 import moment from 'moment';
 const totp = require('totp-generator');
 const axios = require('axios');
@@ -34,6 +36,53 @@ export type MarginAPIResponseType = {
   utilisedturnover: string | null;
   utilisedpayout: string | null;
 };
+export type Position = {
+  symboltoken: string;
+  symbolname: string;
+  instrumenttype: string;
+  priceden: string;
+  pricenum: string;
+  genden: string;
+  gennum: string;
+  precision: string;
+  multiplier: string;
+  boardlotsize: string;
+  exchange: string;
+  producttype: string;
+  tradingsymbol: string;
+  symbolgroup: string;
+  strikeprice: string;
+  optiontype: 'CE' | 'PE';
+  expirydate: string;
+  lotsize: string;
+  cfbuyqty: string;
+  cfsellqty: string;
+  cfbuyamount: string;
+  cfsellamount: string;
+  buyavgprice: string;
+  sellavgprice: string;
+  avgnetprice: string;
+  netvalue: string;
+  netqty: string;
+  totalbuyvalue: string;
+  totalsellvalue: string;
+  cfbuyavgprice: string;
+  cfsellavgprice: string;
+  totalbuyavgprice: string;
+  totalsellavgprice: string;
+  netprice: string;
+  buyqty: string;
+  sellqty: string;
+  buyamount: string;
+  sellamount: string;
+  pnl: string;
+  realised: string;
+  unrealised: string;
+  ltp: string;
+  close: string;
+};
+export const TRANSACTION_TYPE_BUY = 'BUY';
+export const TRANSACTION_TYPE_SELL = 'SELL';
 export type CREDENTIALS = {
   APIKEY: string;
   CLIENT_CODE: string;
@@ -194,15 +243,6 @@ export const getMarginDetails =
 export const roundToNearestHundred = (input: number): number => {
   return Math.ceil(input / 100) * 100;
 };
-export const isJson = (string: string) => {
-  console.log(`${ALGO}: checking if json is proper.`);
-  try {
-    JSON.parse(string);
-    return true;
-  } catch (error) {
-    return false;
-  }
-};
 export type delayType = {
   milliSeconds: number | undefined | string;
 };
@@ -267,7 +307,7 @@ const getScripMasterJson = async () => {
   }
 };
 export const fetchData = async (): Promise<scripMasterResponse[]> => {
-  const data = getScripMasterJson();
+  const data = await getScripMasterJson();
   if (data.length > 0) {
     return data as scripMasterResponse[];
   } else {
@@ -303,7 +343,7 @@ export const getLastThursdayOfCurrentMonth = () => {
   return lastDayOfMonth.format('DDMMMYYYY').toUpperCase();
 };
 export const getAllFut = async () => {
-  let scripMaster: scripMasterResponse[] = getScripMasterJson();
+  let scripMaster: scripMasterResponse[] = await getScripMasterJson();
   if (isArray(scripMaster) && scripMaster.length > 0) {
     const _expiry: string = getLastThursdayOfCurrentMonth();
     let filteredScrips = scripMaster.filter((scrip) => {
@@ -317,5 +357,55 @@ export const getAllFut = async () => {
     else throw new Error('some error occurred');
   } else {
     throw new Error('some error occurred');
+  }
+};
+export const closeParticularTrade = async (position: Position) => {
+  if (smartSession) {
+    const jwtToken = smartSession.jwtToken;
+    const cred = getCredentials();
+    const netQty = parseInt(position.netqty);
+    const tradingsymbol = position.tradingsymbol;
+    const transactionType =
+      netQty < 0 ? TRANSACTION_TYPE_BUY : TRANSACTION_TYPE_SELL;
+    const symboltoken = position.symboltoken;
+    let data = JSON.stringify({
+      exchange: 'NFO',
+      tradingsymbol,
+      symboltoken,
+      quantity: Math.abs(netQty),
+      disclosedquantity: Math.abs(netQty),
+      transactiontype: transactionType,
+      ordertype: 'MARKET',
+      variety: 'NORMAL',
+      producttype: 'CARRYFORWARD',
+      duration: 'DAY',
+    });
+    console.log(`${ALGO} closeParticularTrade data `, data);
+    let config = {
+      method: 'post',
+      url: ORDER_API,
+      headers: {
+        Authorization: `Bearer ${jwtToken}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-UserType': 'USER',
+        'X-SourceID': 'WEB',
+        'X-ClientLocalIP': 'CLIENT_LOCAL_IP',
+        'X-ClientPublicIP': 'CLIENT_PUBLIC_IP',
+        'X-MACAddress': 'MAC_ADDRESS',
+        'X-PrivateKey': cred.APIKEY,
+      },
+      data: data,
+    };
+    return await axios(config)
+      .then((response: Response) => {
+        return _get(response, 'data');
+      })
+      .catch((error: Response) => {
+        const errorMessage = `${ALGO}: doOrder failed error below`;
+        console.log(errorMessage);
+        console.log(error);
+        throw error;
+      });
   }
 };
