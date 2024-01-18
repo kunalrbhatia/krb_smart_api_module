@@ -4,7 +4,9 @@ export const SCRIPMASTER =
   'https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json';
 export const ORDER_API =
   'https://apiconnect.angelbroking.com/rest/secure/angelbroking/order/v1/placeOrder';
-import moment from 'moment';
+export const GET_POSITIONS =
+  'https://apiconnect.angelbroking.com/rest/secure/angelbroking/order/v1/getPosition';
+import moment from 'moment-timezone';
 const totp = require('totp-generator');
 const axios = require('axios');
 export const ALGO = 'ALGO';
@@ -20,6 +22,7 @@ export enum INDICES {
   BANKNIFTY = 'BANKNIFTY',
   SENSEX = 'SENSEX',
 }
+export type TimeComparisonType = { hours: number; minutes: number };
 export type MarginAPIResponseType = {
   net: string | null;
   availablecash: string | null;
@@ -361,7 +364,6 @@ export const getAllFut = async () => {
 };
 export const closeParticularTrade = async (position: Position) => {
   if (smartSession) {
-    const jwtToken = smartSession.jwtToken;
     const cred = getCredentials();
     const netQty = parseInt(position.netqty);
     const tradingsymbol = position.tradingsymbol;
@@ -380,32 +382,71 @@ export const closeParticularTrade = async (position: Position) => {
       producttype: 'CARRYFORWARD',
       duration: 'DAY',
     });
-    console.log(`${ALGO} closeParticularTrade data `, data);
+    // console.log(`${ALGO}: closeParticularTrade data `, data);
     let config = {
       method: 'post',
       url: ORDER_API,
       headers: {
-        Authorization: `Bearer ${jwtToken}`,
+        Authorization: `Bearer ${smartSession.jwtToken}`,
         'Content-Type': 'application/json',
         Accept: 'application/json',
-        'X-UserType': 'USER',
-        'X-SourceID': 'WEB',
-        'X-ClientLocalIP': 'CLIENT_LOCAL_IP',
-        'X-ClientPublicIP': 'CLIENT_PUBLIC_IP',
-        'X-MACAddress': 'MAC_ADDRESS',
         'X-PrivateKey': cred.APIKEY,
       },
       data: data,
     };
-    return await axios(config)
-      .then((response: Response) => {
+    try {
+      const response = await axios(config);
+      if (response.status >= 200 && response.status < 300) {
         return _get(response, 'data');
-      })
-      .catch((error: Response) => {
-        const errorMessage = `${ALGO}: doOrder failed error below`;
-        console.log(errorMessage);
-        console.log(error);
-        throw error;
-      });
+      } else {
+        const errorMessage = `${ALGO}: closeParticularTrade failed. Symbol: ${tradingsymbol}. HTTP Status Code: ${response.status}`;
+        console.error(errorMessage);
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      const errorMessage = `${ALGO}: closeParticularTrade failed. Symbol: ${tradingsymbol}. Error: `;
+      console.error(errorMessage, error);
+      throw error;
+    }
   }
+};
+export const getPositions = async () => {
+  if (smartSession) {
+    const cred = getCredentials();
+    let config = {
+      method: 'get',
+      url: GET_POSITIONS,
+      headers: {
+        Authorization: `Bearer ${smartSession.jwtToken}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-PrivateKey': cred.APIKEY,
+      },
+      data: '',
+    };
+    try {
+      const response = await axios(config);
+      if (response.status >= 200 && response.status < 300) {
+        return _get(response, 'data.data', []) as Position[];
+      } else {
+        const errorMessage = `${ALGO}: getPositions failed. HTTP Status Code: ${response.status}`;
+        console.error(errorMessage);
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      const errorMessage = `${ALGO}: getPositions failed. Error: `;
+      console.error(errorMessage, error);
+      throw error;
+    }
+  }
+};
+export const isCurrentTimeGreater = ({
+  hours,
+  minutes,
+}: TimeComparisonType): boolean => {
+  const currentTime = moment().tz('Asia/Kolkata');
+  const targetTime = moment()
+    .tz('Asia/Kolkata')
+    .set({ hours, minutes, seconds: 0 });
+  return currentTime.isAfter(targetTime);
 };
