@@ -148,27 +148,23 @@ export const isTradingHoliday = (): boolean => {
   });
   return isHoliday;
 };
-let credentails: CREDENTIALS | undefined;
+let credentails: CREDENTIALS;
 export const setCredentials = ({
   APIKEY,
   CLIENT_CODE,
   CLIENT_PIN,
   CLIENT_TOTP_PIN,
 }: CREDENTIALS) => {
-  if (credentails) {
-    throw new Error('Credentials have already been set.');
+  if (!credentails) {
+    credentails = {
+      APIKEY,
+      CLIENT_CODE,
+      CLIENT_PIN,
+      CLIENT_TOTP_PIN,
+    };
   }
-  credentails = {
-    APIKEY,
-    CLIENT_CODE,
-    CLIENT_PIN,
-    CLIENT_TOTP_PIN,
-  };
 };
 export const getCredentials = () => {
-  if (!credentails) {
-    throw new Error('Credentials have not been set.');
-  }
   return credentails;
 };
 export interface ISmartApiData {
@@ -176,11 +172,11 @@ export interface ISmartApiData {
   refreshToken: string;
   feedToken: string;
 }
-let smartSession: ISmartApiData | undefined;
+let smartSession: ISmartApiData;
 export const getSmartSession = async () => {
   if (smartSession) return smartSession;
   else {
-    if (credentails) return await generateSmartSession(credentails);
+    return await generateSmartSession(credentails);
   }
 };
 export const generateSmartSession = async (
@@ -197,7 +193,7 @@ export const generateSmartSession = async (
     return smart_api
       .generateSession(credentails.CLIENT_CODE, credentails.CLIENT_PIN, TOTP)
       .then(async (response: object) => {
-        smartSession = _get(response, 'data');
+        smartSession = _get(response, 'data', {}) as ISmartApiData;
         return smartSession;
       })
       .catch((ex: object) => {
@@ -304,6 +300,7 @@ const getScripMasterJson = async () => {
   if (scripMasterJson) {
     return scripMasterJson;
   } else {
+    await delay({ milliSeconds: DELAY });
     const data = await fetchData();
     setScripMasterJson(data);
     return data;
@@ -410,36 +407,40 @@ export const closeParticularTrade = async (position: Position) => {
     }
   }
 };
-export const getPositions = async () => {
-  if (smartSession) {
-    const cred = getCredentials();
-    let config = {
-      method: 'get',
-      url: GET_POSITIONS,
-      headers: {
-        Authorization: `Bearer ${smartSession.jwtToken}`,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'X-PrivateKey': cred.APIKEY,
-      },
-      data: '',
-    };
-    try {
-      const response = await axios(config);
-      if (response.status >= 200 && response.status < 300) {
-        return _get(response, 'data.data', []) as Position[];
-      } else {
-        const errorMessage = `${ALGO}: getPositions failed. HTTP Status Code: ${response.status}`;
-        console.error(errorMessage);
-        throw new Error(errorMessage);
-      }
-    } catch (error) {
-      const errorMessage = `${ALGO}: getPositions failed. Error: `;
-      console.error(errorMessage, error);
-      throw error;
+export const getPositions = async (
+  smartSession: ISmartApiData,
+  cred: CREDENTIALS
+) => {
+  let config = {
+    method: 'get',
+    url: GET_POSITIONS,
+    headers: {
+      Authorization: `Bearer ${smartSession.jwtToken}`,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      'X-UserType': 'USER',
+      'X-SourceID': 'WEB',
+      'X-ClientLocalIP': 'CLIENT_LOCAL_IP',
+      'X-ClientPublicIP': 'CLIENT_PUBLIC_IP',
+      'X-MACAddress': 'MAC_ADDRESS',
+      'X-PrivateKey': cred.APIKEY,
+    },
+    data: '',
+  };
+  try {
+    const response = await axios(config);
+    if (response.status >= 200 && response.status < 300) {
+      return _get(response, 'data.data', []) as Position[];
+    } else {
+      const errorMessage = `${ALGO}: getPositions failed. HTTP Status Code: ${response.status}`;
+      console.error(errorMessage);
+      throw new Error(errorMessage);
     }
+  } catch (error) {
+    const errorMessage = `${ALGO}: getPositions failed. Error: `;
+    console.error(errorMessage, error);
+    throw error;
   }
-  return [];
 };
 export const isCurrentTimeGreater = ({
   hours,
