@@ -92,6 +92,9 @@ export type CREDENTIALS = {
   CLIENT_PIN: string;
   CLIENT_TOTP_PIN: string;
 };
+export type getScripFutType = {
+  scriptName: string;
+};
 export const getStrikeDifference = (index: string) => {
   switch (index) {
     case INDICES.NIFTY:
@@ -451,4 +454,31 @@ export const isCurrentTimeGreater = ({
     .tz('Asia/Kolkata')
     .set({ hours, minutes, seconds: 0 });
   return currentTime.isAfter(targetTime);
+};
+export const getScripFut = async ({ scriptName }: getScripFutType) => {
+  let scripMaster: scripMasterResponse[] = await fetchData();
+  console.log(
+    `${ALGO}: scriptName: ${scriptName}, is scrip master an array: ${isArray(
+      scripMaster
+    )}, its length is: ${scripMaster.length}`
+  );
+  if (scriptName && isArray(scripMaster) && scripMaster.length > 0) {
+    console.log(`${ALGO}: all check cleared getScrip call`);
+    console.log(`${ALGO}: expiry: ${getLastThursdayOfCurrentMonth()}`);
+    let filteredScrip = scripMaster.filter((scrip) => {
+      const _scripName: string = _get(scrip, 'name', '') || '';
+      const _expiry: string = getLastThursdayOfCurrentMonth();
+      return (
+        (_scripName.includes(scriptName) || _scripName === scriptName) &&
+        _get(scrip, 'exch_seg') === 'NFO' &&
+        (_get(scrip, 'instrumenttype') === 'FUTSTK' ||
+          _get(scrip, 'instrumenttype') === 'FUTIDX') &&
+        _get(scrip, 'expiry') === _expiry
+      );
+    });
+    if (filteredScrip.length === 1) return filteredScrip[0];
+    else throw new Error('scrip not found');
+  } else {
+    throw new Error('scrip not found');
+  }
 };
