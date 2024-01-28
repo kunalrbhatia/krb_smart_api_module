@@ -12,6 +12,11 @@ export const BIG_DELAY = 15000;
 export const SHORT_DELAY = 500;
 import { get as _get, isArray } from "lodash";
 let { SmartAPI } = require("smartapi-javascript");
+export type GetNearestStrike = {
+  algoTrades: Position[];
+  atmStrike: number;
+  expirationDate: string;
+};
 export enum INDICES {
   NIFTY = "NIFTY",
   MIDCPNIFTY = "MIDCPNIFTY",
@@ -495,4 +500,20 @@ export const getHistoricPrices = async (data: HistoryInterface) => {
     .catch(function (error: any) {
       return error;
     });
+};
+export const getNearestStrike = ({ algoTrades, atmStrike, expirationDate }: GetNearestStrike): number => {
+  let nearestStrike: number = Infinity;
+  let minDifference = Number.MAX_SAFE_INTEGER;
+  algoTrades
+    .filter((trade) => trade.expirydate === expirationDate)
+    .forEach((trade) => {
+      const strikeNumber = parseInt(trade.strikeprice, 10);
+      const difference = Math.abs(strikeNumber - atmStrike);
+      if (difference < minDifference) {
+        nearestStrike = strikeNumber;
+        minDifference = difference;
+      }
+    });
+  console.log(`${ALGO}: nearestStrike: ${nearestStrike}`);
+  return nearestStrike;
 };
