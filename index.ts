@@ -461,7 +461,7 @@ export const getScripFut = async ({ scriptName }: getScripFutType) => {
     throw new Error("scrip not found");
   }
 };
-const getHistoricPrices = async (data: HistoryInterface) => {
+export const getHistoricPrices = async (data: HistoryInterface) => {
   const smartApiData: ISmartApiData = await getSmartSession();
   const cred = getCredentials();
   const payload = JSON.stringify({
