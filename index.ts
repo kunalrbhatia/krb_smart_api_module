@@ -10,12 +10,56 @@ export const ALGO = "ALGO";
 export const DELAY = 1000;
 export const BIG_DELAY = 15000;
 export const SHORT_DELAY = 500;
-import { get as _get, isArray } from "lodash";
+import { get as _get, isArray, isEmpty } from "lodash";
 let { SmartAPI } = require("smartapi-javascript");
 export type GetNearestStrike = {
   algoTrades: Position[];
   atmStrike: number;
   expirationDate: string;
+};
+export type SmartApiInstanceType = {
+  totp: string;
+  api_key: string;
+  client_code: string | null;
+  root: string;
+  timeout: number;
+  debug: boolean;
+  access_token: string | null;
+  refresh_token: string | null;
+  default_login_uri: string;
+  session_expiry_hook: string | null;
+  local_ip: string;
+  mac_addr: string | null;
+  public_ip: string | null;
+  setAccessToken: () => void;
+  setPublicToken: () => void;
+  setClientCode: () => void;
+  setSessionExpiryHook: () => void;
+  generateSession: (client_code: string, password: string, totp: string) => Promise<any>;
+  getLoginURL: () => void;
+  generateToken: () => void;
+  logout: () => void;
+  getProfile: () => void;
+  placeOrder: () => void;
+  modifyOrder: () => void;
+  cancelOrder: () => void;
+  getOrderBook: () => void;
+  getTradeBook: () => void;
+  getRMS: () => void;
+  getHolding: () => void;
+  getPosition: () => void;
+  convertPosition: () => void;
+  createRule: () => void;
+  modifyRule: () => void;
+  cancelRule: () => void;
+  ruleDetails: () => void;
+  ruleList: () => void;
+  marketData: () => void;
+  searchScrip: () => void;
+  getAllHolding: () => void;
+  indOrderDetails: () => void;
+  marginApi: () => void;
+  getCandleData: () => void;
 };
 export enum INDICES {
   NIFTY = "NIFTY",
@@ -516,4 +560,21 @@ export const getNearestStrike = ({ algoTrades, atmStrike, expirationDate }: GetN
     });
   console.log(`${ALGO}: nearestStrike: ${nearestStrike}`);
   return nearestStrike;
+};
+export const getOrderBook = async () => {
+  const TOTP = totp(credentails.CLIENT_TOTP_PIN);
+  const smart_api = new SmartAPI({
+    api_key: credentails.APIKEY,
+    totp: TOTP,
+  });
+  return smart_api
+    .generateSession(credentails.CLIENT_CODE, credentails.CLIENT_PIN, TOTP)
+    .then(async (response: object) => {
+      return await smart_api.getOrderBook();
+    })
+    .catch((ex: object) => {
+      console.log(`${ALGO}: generateSmartSession failed error below`);
+      console.log(ex);
+      throw ex;
+    });
 };
