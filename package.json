@@ -1,6 +1,6 @@
 {
   "name": "krb-smart-api-module",
-  "version": "1.0.20",
+  "version": "1.0.21",
   "description": "This is a helper module for the algo project smart-api, This module is hosted on npm.",
   "files": [
     "*.js",

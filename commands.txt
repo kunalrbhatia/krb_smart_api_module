@@ -1,0 +1,2 @@
+npx tsc //to build
+npm publish //to deploy
